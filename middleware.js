@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = "my_super_secret_key_123"; 
+const JWT_SECRET = process.env.JWT_SECRET; 
 
 module.exports = function(req, res, next) {
   const token = req.header('Authorization');
