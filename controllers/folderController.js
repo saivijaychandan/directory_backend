@@ -8,6 +8,55 @@ exports.getAllFolders = async (req, res) => {
   } catch (err) { res.status(500).send(err.message); }
 };
 
+exports.getFolderByName = async (req, res) => {
+  try {
+    const folderName = req.params.name;
+    const userId = req.user.id;
+    const folder = await Folder.findOne({ 
+        name: folderName, 
+        user: userId 
+    });
+
+    if (!folder) {
+        return res.status(404).json({ msg: "Folder not found" });
+    }
+
+    res.json(folder);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+};
+
+exports.getFolder = async (req, res) => {
+  try {
+    const param = req.params.id;
+    const userId = req.user.id;
+
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(param);
+
+    let folder;
+
+    if (isObjectId) {
+      folder = await Folder.findOne({ _id: param, user: userId });
+    }
+
+    if (!folder && !isObjectId) {
+      folder = await Folder.findOne({ name: param, user: userId });
+    }
+
+    if (!folder) {
+      return res.status(404).json({ msg: "Folder not found" });
+    }
+
+    res.json(folder);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server Error");
+  }
+};
+
 exports.getFolderById = async (req, res) => {
   try {
     const folder = await Folder.findById(req.params.id);
@@ -30,30 +79,52 @@ exports.getFolderById = async (req, res) => {
 exports.createFolder = async (req, res) => {
   try {
     const { name } = req.body;
-    const uniqueName = await getUniqueFolderName(Folder, 'name', name, { user: req.user.id });
-    const newFolder = await Folder.create({ name: uniqueName, user: req.user.id });
+    const userId = req.user.id;
+
+    const trimmedName = name.trim();
+    if (!trimmedName) return res.status(400).json({ msg: "Folder name cannot be empty" });
+
+    const existingFolder = await Folder.findOne({ name: trimmedName, user: userId });
+    if (existingFolder) {
+      return res.status(400).json({ msg: "Folder name already exists" });
+    }
+
+    const newFolder = await Folder.create({ name: trimmedName, user: userId });
     res.json(newFolder);
-  } catch (err) { res.status(500).send(err.message); }
+
+  } catch (err) { 
+    console.error(err);
+    res.status(500).send("Server Error"); 
+  }
 };
 
 exports.updateFolder = async (req, res) => {
   try {
     const { name } = req.body;
-    const uniqueName = await getUniqueFolderName(Folder, 'name', name, { user: req.user.id });
+    const folderId = req.params.id;
+    const userId = req.user.id;
+
+    const trimmedName = name.trim();
+    if (!trimmedName) return res.status(400).json({ msg: "Name required" });
+
+    const duplicate = await Folder.findOne({ name: trimmedName, user: userId });
+    
+    if (duplicate && duplicate._id.toString() !== folderId) {
+       return res.status(400).json({ msg: "Folder name already exists" });
+    }
+
     const updatedFolder = await Folder.findByIdAndUpdate(
-        req.params.id, 
-        { name: uniqueName }, 
+        folderId, 
+        { name: trimmedName }, 
         { new: true }
     );
 
-    if (!updatedFolder) {
-        return res.status(404).json({ msg: "Folder not found" });
-    }
+    if (!updatedFolder) return res.status(404).json({ msg: "Folder not found" });
 
     res.json(updatedFolder);
   } catch (err) { 
     console.error(err);
-    res.status(500).send(err.message); 
+    res.status(500).send("Server Error"); 
   }
 };
 

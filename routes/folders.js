@@ -6,7 +6,7 @@ const imageController = require('../controllers/imageController');
 
 router.get('/', authMiddleware, folderController.getAllFolders);
 router.post('/', authMiddleware, folderController.createFolder);
-router.get('/:id', authMiddleware, folderController.getFolderById);
+router.get('/:id', authMiddleware, folderController.getFolder);
 router.put('/:id', authMiddleware, folderController.updateFolder);
 router.delete('/:id', authMiddleware, folderController.deleteFolder);
 router.get('/:folderId/images', authMiddleware, imageController.getImagesByFolder);

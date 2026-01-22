@@ -4,24 +4,36 @@ const { getUniqueFileName } = require('../utils/nameUtils');
 exports.uploadImage = async (req, res) => {
   try {
     const { folderId } = req.body;
+    
+    if (!req.file) {
+      return res.status(400).json({ msg: "No file uploaded" });
+    }
+
     const originalName = req.file.originalname;
 
+    const existingFile = await ImageFile.findOne({ 
+        folder: folderId, 
+        name: originalName 
+    });
+
+    if (existingFile) {
+        return res.status(400).json({ msg: "A file with this name already exists in this folder." });
+    }
     const newBlob = new ImageBlob({
       data: req.file.buffer,
       contentType: req.file.mimetype
     });
     const savedBlob = await newBlob.save();
 
-    const uniqueFileName = await getUniqueFileName(ImageFile, folderId, originalName);
-    
     const newFile = new ImageFile({
-      name: uniqueFileName,
+      name: originalName,
       folder: folderId,
       blob: savedBlob._id 
     });
 
     await newFile.save();
     res.json(newFile);
+
   } catch (err) { 
     console.error(err);
     res.status(500).send("Server Error: " + err.message); 
@@ -59,9 +71,18 @@ exports.renameImage = async (req, res) => {
     let newName = req.body.name;
     if (!newName || !newName.trim()) return res.status(400).json({ msg: "Name required" });
 
-    const uniqueName = await getUniqueFileName(ImageFile, image.folder, newName, image._id);
+    newName = newName.trim();
 
-    image.name = uniqueName;
+    const existingFile = await ImageFile.findOne({ 
+        folder: image.folder,
+        name: newName 
+    });
+
+    if (existingFile && existingFile._id.toString() !== req.params.id) {
+        return res.status(400).json({ msg: "A file with this name already exists here." });
+    }
+
+    image.name = newName;
     await image.save();
     res.json(image);
   } catch (err) { res.status(500).send(err.message); }
@@ -92,6 +113,7 @@ exports.copyImage = async (req, res) => {
       if (!originalFile) return res.status(404).send("File not found");
   
       const destFolderId = targetFolderId || originalFile.folder;
+    
       const newName = await getUniqueFileName(ImageFile, destFolderId, originalFile.name);
   
       const newFile = new ImageFile({
@@ -110,7 +132,6 @@ exports.moveImage = async (req, res) => {
       const { targetFolderId } = req.body;
       const file = await ImageFile.findById(req.params.id);
       if (!file) return res.status(404).send("File not found");
-  
       const uniqueName = await getUniqueFileName(ImageFile, targetFolderId, file.name);
   
       file.folder = targetFolderId;
