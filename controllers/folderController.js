@@ -1,6 +1,4 @@
-const { Folder, ImageFile, ImageBlob } = require('../models/models');
-const { getUniqueFolderName } = require('../utils/nameUtils');
-const { Folder, ImageFile, ImageBlob } = require('../models/models');
+const { Folder, ImageFile, ImageBlob } = require('../models');
 const { getUniqueFolderName } = require('../utils/nameUtils');
 
 exports.getAllFolders = async (req, res) => {
@@ -8,6 +6,25 @@ exports.getAllFolders = async (req, res) => {
     const folders = await Folder.find({ user: req.user.id });
     res.json(folders);
   } catch (err) { res.status(500).send(err.message); }
+};
+
+exports.getFolderById = async (req, res) => {
+  try {
+    const folder = await Folder.findById(req.params.id);
+    if (!folder) return res.status(404).json({ msg: "Folder not found" });
+    
+    if (folder.user.toString() !== req.user.id) {
+       return res.status(401).json({ msg: "Not authorized" });
+    }
+
+    res.json(folder);
+  } catch (err) {
+    console.error(err);
+    if (err.kind === 'ObjectId') {
+        return res.status(404).json({ msg: "Folder not found" });
+    }
+    res.status(500).send("Server Error");
+  }
 };
 
 exports.createFolder = async (req, res) => {

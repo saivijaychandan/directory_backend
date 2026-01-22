@@ -1,24 +1,19 @@
-// controllers/imageController.js
-const { ImageFile, ImageBlob } = require('../models'); // Adjust path if you moved models
+const { ImageFile, ImageBlob } = require('../models');
 const { getUniqueFileName } = require('../utils/nameUtils');
 
 exports.uploadImage = async (req, res) => {
   try {
     const { folderId } = req.body;
-    // req.file is provided by multer
     const originalName = req.file.originalname;
 
-    // 1. Create the heavy Blob (Data)
     const newBlob = new ImageBlob({
       data: req.file.buffer,
       contentType: req.file.mimetype
     });
     const savedBlob = await newBlob.save();
 
-    // 2. Generate unique name
     const uniqueFileName = await getUniqueFileName(ImageFile, folderId, originalName);
     
-    // 3. Create the File Pointer (Metadata)
     const newFile = new ImageFile({
       name: uniqueFileName,
       folder: folderId,
@@ -27,6 +22,16 @@ exports.uploadImage = async (req, res) => {
 
     await newFile.save();
     res.json(newFile);
+  } catch (err) { 
+    console.error(err);
+    res.status(500).send("Server Error: " + err.message); 
+  }
+};
+
+exports.getImagesByFolder = async (req, res) => {
+  try {
+    const images = await ImageFile.find({ folder: req.params.folderId });
+    res.json(images);
   } catch (err) { 
     console.error(err);
     res.status(500).send("Server Error: " + err.message); 
@@ -54,7 +59,6 @@ exports.renameImage = async (req, res) => {
     let newName = req.body.name;
     if (!newName || !newName.trim()) return res.status(400).json({ msg: "Name required" });
 
-    // Using the 'excludeId' fix we discussed
     const uniqueName = await getUniqueFileName(ImageFile, image.folder, newName, image._id);
 
     image.name = uniqueName;
@@ -71,7 +75,6 @@ exports.deleteImage = async (req, res) => {
     const blobId = file.blob;
     await ImageFile.findByIdAndDelete(req.params.id);
     
-    // Garbage Collection: Check if blob is still used
     const remainingRefs = await ImageFile.countDocuments({ blob: blobId });
     if (remainingRefs === 0) {
       await ImageBlob.findByIdAndDelete(blobId);
@@ -91,7 +94,6 @@ exports.copyImage = async (req, res) => {
       const destFolderId = targetFolderId || originalFile.folder;
       const newName = await getUniqueFileName(ImageFile, destFolderId, originalFile.name);
   
-      // Point to EXISTING blob (No new data created!)
       const newFile = new ImageFile({
         name: newName,
         folder: destFolderId,
