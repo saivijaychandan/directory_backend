@@ -166,7 +166,6 @@ app.delete('/api/folders/:id', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).send(err.message); }
 });
 
-
 app.get('/api/folders/:folderId/images', authMiddleware, async (req, res) => {
   try {
     const images = await ImageFile.find({ folder: req.params.folderId });
@@ -174,7 +173,7 @@ app.get('/api/folders/:folderId/images', authMiddleware, async (req, res) => {
   } catch (err) { res.status(500).send(err.message); }
 });
 
-app.post('/api/images', upload.single('imageFile'), async (req, res) => {
+app.post('/api/images', authMiddleware, upload.single('imageFile'), async (req, res) => {
   try {
     const { folderId } = req.body;
     const originalName = req.file.originalname;
