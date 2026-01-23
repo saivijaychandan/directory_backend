@@ -14,16 +14,12 @@ const FolderSchema = new mongoose.Schema({
 const ImageBlobSchema = new mongoose.Schema({
   data: Buffer,
   contentType: String,
-  // Optional: A hash (md5) could go here to prevent duplicate uploads entirely
 });
 
-// 2. The Lightweight Pointer (The "File")
 const ImageFileSchema = new mongoose.Schema({
   name: { type: String, required: true },
   folder: { type: mongoose.Schema.Types.ObjectId, ref: 'Folder' },
-  
-  // THE LINK: Points to the centralized blob
-  blob: { type: mongoose.Schema.Types.ObjectId, ref: 'ImageBlob', required: true } 
+  blob: { type: mongoose.Schema.Types.ObjectId, ref: 'ImageBlob', required: true }
 });
 
 const ImageBlob = mongoose.model('ImageBlob', ImageBlobSchema);
