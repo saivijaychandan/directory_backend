@@ -6,7 +6,7 @@ const UserSchema = new mongoose.Schema({
   name: {type: String, default: ''},
   age: {type: Number, default: null},
   phone: {type: String, unique: true},
-  isProfileSetUp: {type: Boolean, default: false}
+  isProfileSetup: {type: Boolean, default: false}
 });
 
 const FolderSchema = new mongoose.Schema({

@@ -14,7 +14,7 @@ exports.register = async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-    
+
     const newUser = await User.create({ 
       username, 
       password: hashedPassword 
@@ -46,15 +46,16 @@ exports.login = async (req, res) => {
     }
 
     const token = jwt.sign({ user: { id: user.id } }, JWT_SECRET, { expiresIn: '1h' });
+    const userObj = user.toObject();
     res.json({ 
         token, 
         user: { 
-            id: user._id,
-            username: user.username,
-            name: user.name,
-            age: user.age,
-            phoneNumber: user.phoneNumber,
-            isProfileSetup: user.isProfileSetup
+            id: userObj._id,
+            username: userObj.username,
+            name: userObj.name,
+            age: userObj.age,
+            phone: userObj.phone,
+            isProfileSetup: userObj.isProfileSetup
         } 
     });
   } catch (err) { res.status(500).send(err.message); }
@@ -62,7 +63,7 @@ exports.login = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   try {
-    const { name, age, phoneNumber } = req.body;
+    const { name, age, phone } = req.body;
     
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ msg: "User not found" });
@@ -70,9 +71,9 @@ exports.updateProfile = async (req, res) => {
     user.name = name;
     user.age = age;
     
-    user.phone = phoneNumber; 
+    user.phone = phone; 
     
-    user.isProfileSetUp = true; 
+    user.isProfileSetup = true; 
 
     await user.save();
 
@@ -83,7 +84,7 @@ exports.updateProfile = async (req, res) => {
             name: user.name,
             age: user.age,
             phoneNumber: user.phone,
-            isProfileSetup: user.isProfileSetUp 
+            isProfileSetup: user.isProfileSetup 
         } 
     });
   } catch (err) {
