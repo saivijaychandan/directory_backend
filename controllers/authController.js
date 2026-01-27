@@ -2,7 +2,6 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
 const sendEmail = require('../utils/sendEmail');
-const crypto = require('crypto')
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -152,4 +151,58 @@ exports.updateProfile = async (req, res) => {
     console.error(err);
     res.status(500).send("Server Error");
   }
+};
+
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { username } = req.body;
+    const user = await User.findOne({ username });
+    console.log({username});
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpires = Date.now() + 10 * 60 * 1000;
+    await user.save();
+
+    const emailHtml = `
+      <div style="text-align: center;">
+        <h2 style="color: #333;">Reset Password</h2>
+        <p>You requested to reset your password. Use the code below:</p>
+        <div style="background-color: #f0f4f8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">${otp}</span>
+        </div>
+        <p style="color: #666; font-size: 14px;">If you didn't request this, ignore this email.</p>
+      </div>
+    `;
+
+    await sendEmail(user.username, "Reset Password Code", `Code: ${otp}`, emailHtml);
+
+    res.json({ message: "OTP sent to email" });
+  } catch (err) { res.status(500).send(err.message); }
+};
+
+exports.resetPassword = async (req, res) => {
+  try {
+    const { username, otp, newPassword } = req.body;
+    
+    const user = await User.findOne({ username });
+    if (!user) return res.status(404).json({ msg: "User not found" });
+
+    if (!user.otp || user.otp !== otp) {
+        return res.status(400).json({ msg: "Invalid OTP" });
+    }
+    if (user.otpExpires < Date.now()) {
+        return res.status(400).json({ msg: "OTP expired" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) { res.status(500).send(err.message); }
 };
