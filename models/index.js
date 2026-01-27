@@ -3,6 +3,10 @@ const mongoose = require('mongoose');
 const UserSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  name: {type: String, default: ''},
+  age: {type: Number, default: null},
+  phone: {type: String, unique: true},
+  isProfileSetUp: {type: Boolean, default: false}
 });
 
 const FolderSchema = new mongoose.Schema({
