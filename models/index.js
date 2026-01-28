@@ -5,7 +5,7 @@ const UserSchema = new mongoose.Schema({
   password: { type: String, required: true },
   name: {type: String, default: ''},
   age: {type: Number, default: null},
-  phone: {type: String, unique: true},
+  phone: {type: String, unique: true, sparse: true},
   isProfileSetup: {type: Boolean, default: false},
   otp: { type: String, default: null },
   otpExpires: { type: Date, default: null }

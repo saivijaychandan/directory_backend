@@ -13,7 +13,18 @@ const sendOtpAndResponse = async (user, res) => {
     user.otpExpires = Date.now() + 10 * 60 * 1000; 
     await user.save(); 
 
-    const otpHtml = `... your html string ...`;
+    const otpHtml = `
+      <div style="text-align: center;">
+        <h2 style="color: #333;">Verify Your Email</h2>
+        <p>Please enter this code to complete your registration:</p>
+        <div style="background-color: #f0f4f8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">
+                ${otp}
+            </span>
+        </div>
+        <p style="color: #666; font-size: 14px;">This code expires in 10 minutes.</p>
+      </div>
+    `;
 
     res.json({ 
         message: "OTP sent", 
