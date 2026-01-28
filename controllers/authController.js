@@ -5,12 +5,57 @@ const sendEmail = require('../utils/sendEmail');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+const sendOtpAndResponse = async (user, res) => {
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    user.otp = otp;
+    user.otpExpires = Date.now() + 10 * 60 * 1000;
+
+    await user.save(); 
+
+    const otpHtml = `
+      <div style="text-align: center;">
+        <h2 style="color: #333;">Verify Your Email</h2>
+        <p>Your verification code is:</p>
+        <div style="background-color: #f0f4f8; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">
+                ${otp}
+            </span>
+        </div>
+        <p style="color: #666; font-size: 14px;">This code expires in 10 minutes.</p>
+      </div>
+    `;
+
+    await sendEmail(
+        user.username, 
+        "Verify your account",
+        `Your verification code is ${otp}`,
+        otpHtml
+    );
+
+    return res.json({ 
+        message: "OTP sent", 
+        mfaRequired: true, 
+        userId: user._id 
+    });
+};
+
 exports.register = async (req, res) => {
   try {
     const { username, password } = req.body;
 
     const existingUser = await User.findOne({ username });
-    if (existingUser) return res.status(400).json({ msg: "User already exists" });
+    
+    if (existingUser) {
+        if (existingUser.otp) {
+            const salt = await bcrypt.genSalt(10);
+            existingUser.password = await bcrypt.hash(password, salt);
+            
+            return await sendOtpAndResponse(existingUser, res);
+        }
+        
+        return res.status(400).json({ msg: "User already exists" });
+    }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
@@ -20,39 +65,7 @@ exports.register = async (req, res) => {
       password: hashedPassword 
     });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    newUser.otp = otp;
-    newUser.otpExpires = Date.now() + 10 * 60 * 1000;
-
-    await newUser.save();
-
-    const otpHtml = `
-      <div style="text-align: center;">
-        <h2 style="color: #333;">Verify Your Email</h2>
-        <p>Welcome to My Drive! Please enter this code to complete your registration:</p>
-        
-        <div style="background-color: #f0f4f8; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">
-                ${otp}
-            </span>
-        </div>
-        
-        <p style="color: #666; font-size: 14px;">This code expires in 10 minutes.</p>
-      </div>
-    `;
-
-    await sendEmail(
-        username, 
-        "Verify your account",
-        `Your verification code is ${otp}`,
-        otpHtml
-    );
-
-    res.json({ 
-        message: "OTP sent", 
-        mfaRequired: true, 
-        userId: newUser._id 
-    });
+    await sendOtpAndResponse(newUser, res);
 
   } catch (err) { 
       console.error(err);
@@ -66,6 +79,8 @@ exports.login = async (req, res) => {
     const user = await User.findOne({ username });
     
     if (!user) return res.status(400).json({ msg: "Invalid credentials" });
+
+    if (user.otp) return res.status(400).json({ msg: "Please verify your email first." });
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ msg: "Invalid credentials" });
