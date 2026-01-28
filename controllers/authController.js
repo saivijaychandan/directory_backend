@@ -1,42 +1,40 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models');
-const sendEmail = require('../utils/sendEmail');
+const axios = require('axios');
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const internalKey = process.env.INTERNAL_API_KEY;
 
 const sendOtpAndResponse = async (user, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     
     user.otp = otp;
-    user.otpExpires = Date.now() + 10 * 60 * 1000;
-
+    user.otpExpires = Date.now() + 10 * 60 * 1000; 
     await user.save(); 
 
-    const otpHtml = `
-      <div style="text-align: center;">
-        <h2 style="color: #333;">Verify Your Email</h2>
-        <p>Your verification code is:</p>
-        <div style="background-color: #f0f4f8; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #007bff;">
-                ${otp}
-            </span>
-        </div>
-        <p style="color: #666; font-size: 14px;">This code expires in 10 minutes.</p>
-      </div>
-    `;
+    const otpHtml = `... your html string ...`;
 
-    await sendEmail(
-        user.username, 
-        "Verify your account",
-        `Your verification code is ${otp}`,
-        otpHtml
-    );
-
-    return res.json({ 
+    res.json({ 
         message: "OTP sent", 
         mfaRequired: true, 
         userId: user._id 
+    });
+    const emailServiceUrl = process.env.EMAIL_SERVICE_URL + '/send'; 
+
+    axios.post(emailServiceUrl, {
+        to: user.username,
+        subject: "Verify your account",
+        text: `Your verification code is ${otp}`,
+        extraHtml: otpHtml
+    },{
+        headers: { 'x-internal-secret': internalKey } 
+    })
+    .then(response => {
+        console.log("Microservice accepted the email request.");
+    })
+    .catch(error => {
+        console.error("FAILED to talk to Email Service:", error.message);
     });
 };
 
@@ -172,7 +170,7 @@ exports.forgotPassword = async (req, res) => {
   try {
     const { username } = req.body;
     const user = await User.findOne({ username });
-    console.log({username});
+    
     if (!user) return res.status(404).json({ msg: "User not found" });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -191,10 +189,26 @@ exports.forgotPassword = async (req, res) => {
       </div>
     `;
 
-    await sendEmail(user.username, "Reset Password Code", `Code: ${otp}`, emailHtml);
-
     res.json({ message: "OTP sent to email" });
-  } catch (err) { res.status(500).send(err.message); }
+
+    const emailServiceUrl = process.env.EMAIL_SERVICE_URL + '/send';
+    
+    axios.post(emailServiceUrl, {
+        to: user.username,
+        subject: "Reset Password Code",
+        text: `Code: ${otp}`,
+        extraHtml: emailHtml
+    },{
+        headers: { 'x-internal-secret': internalKey } 
+    })
+    .catch(err => {
+        console.error("Failed to send Password Reset Email:", err.message);
+    });
+
+  } catch (err) {
+      console.error(err);
+      if (!res.headersSent) res.status(500).send(err.message); 
+  }
 };
 
 exports.resetPassword = async (req, res) => {
