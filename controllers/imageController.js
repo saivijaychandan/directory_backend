@@ -1,5 +1,6 @@
-const { ImageFile, ImageBlob } = require('../models');
+const { ImageFile, ImageBlob, Folder } = require('../models');
 const { getUniqueFileName } = require('../utils/nameUtils');
+const mongoose = require('mongoose');
 
 exports.uploadImage = async (req, res) => {
   try {
@@ -74,12 +75,12 @@ exports.renameImage = async (req, res) => {
     newName = newName.trim();
 
     const existingFile = await ImageFile.findOne({ 
-        folder: image.folder,
-        name: newName 
+      folder: image.folder,
+      name: newName 
     });
 
     if (existingFile && existingFile._id.toString() !== req.params.id) {
-        return res.status(400).json({ msg: "A file with this name already exists here." });
+      return res.status(400).json({ msg: "A file with this name already exists here." });
     }
 
     image.name = newName;
@@ -140,3 +141,44 @@ exports.moveImage = async (req, res) => {
       res.json(file);
     } catch (err) { res.status(500).send("Server Error"); }
 };
+
+function escapeRegex(text) {
+    return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
+exports.searchFile = async (req, res) => {
+  try {
+    const { fileName, folderId } = req.query; 
+    const userId = req.user.id;
+    
+    if (!folderId) {
+      return res.status(400).json({ msg: "Folder ID or Name is required" });
+    }
+    
+    let folder;
+    
+    if (mongoose.Types.ObjectId.isValid(folderId)) {
+      folder = await Folder.findOne({ _id: folderId, user: userId });
+    } else {
+      folder = await Folder.findOne({ name: folderId, user: userId });
+    }
+
+    if (!folder) {
+      return res.status(404).json({ msg: "Folder not found" });
+    }
+
+    const query = { folder: folder._id }; 
+
+    if (fileName) {
+      const safeSearch = escapeRegex(fileName);
+      query.name = { $regex: safeSearch, $options: 'i' };
+    }
+    
+    const files = await ImageFile.find(query);
+    return res.json(files);
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).send('Server Error');
+  }
+}

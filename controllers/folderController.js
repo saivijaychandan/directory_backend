@@ -159,3 +159,24 @@ exports.deleteFolder = async (req, res) => {
     res.status(500).send(err.message); 
   }
 };
+
+function escapeRegex(text) {
+    return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
+exports.searchFolder = async (req, res) => {
+  try{
+    const { folderName } = req.query;
+    const userId = req.user.id;
+    const query = { user: userId };
+    if(folderName){
+      const safeSearch = escapeRegex(folderName);
+      query.name = { $regex: safeSearch, $options: 'i' };
+    }
+    const folders = await Folder.find(query);
+    return res.json(folders);
+  } catch (err) {
+    console.log(err);
+    res.status(500).send('Server Error');
+  }
+}

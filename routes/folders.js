@@ -4,6 +4,7 @@ const folderController = require('../controllers/folderController');
 const authMiddleware = require('../middleware');
 const imageController = require('../controllers/imageController');
 
+router.get('/search',authMiddleware,folderController.searchFolder);
 router.get('/', authMiddleware, folderController.getAllFolders);
 router.post('/', authMiddleware, folderController.createFolder);
 router.get('/:id', authMiddleware, folderController.getFolder);
